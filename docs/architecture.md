@@ -193,7 +193,3 @@ graph TD
 - **Sandboxing**: Isolated Docker environments with strict timeouts and resource limits.
 - **Deployment**: User approval mechanisms with automatic rollback capabilities for failed deployments.
 - **Audit Trail**: Complete logging of all evolution cycles and security events for monitoring and analysis.
-
----
-
-This architecture document provides a comprehensive overview of the Goose Evolve system design and implementation approach.
