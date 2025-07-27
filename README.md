@@ -5,7 +5,7 @@
 
 ## What is Goose Evolve?
 
-Goose Evolve is an open-source MCP extension for [Goose AI](https://goose.ai) that enables autonomous self-improvement. Agents evolve by rewriting prompts, MCP configs, and code via evolutionary algorithms and sandboxed testing. Inspired by Darwin Gödel Machine and AlphaEvolve, it focuses on openness, modularity, and user control.
+Goose Evolve is an open-source MCP extension for [Goose AI](https://block.github.io/goose/) that enables autonomous self-improvement. Agents evolve by rewriting prompts, MCP configs, and code via evolutionary algorithms and sandboxed testing. Inspired by Darwin Gödel Machine and AlphaEvolve, it focuses on openness, modularity, and user control.
 
 ## Current Status
 
