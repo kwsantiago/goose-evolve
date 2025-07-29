@@ -362,3 +362,80 @@ def test_configuration_defaults():
     assert config.max_generations == 10
     assert config.fitness_threshold == 0.95
     assert config.parallel_evaluations == 10
+
+
+@pytest.mark.asyncio
+async def test_config_validation(evolution_engine):
+    """Test configuration validation"""
+    # Valid config
+    valid_config = EvolutionConfig(population_size=10, tournament_size=3)
+    result = evolution_engine.validate_config(valid_config)
+    assert result.is_valid
+    assert len(result.errors) == 0
+    
+    # Invalid config
+    invalid_config = EvolutionConfig(population_size=-1, tournament_size=0)
+    result = evolution_engine.validate_config(invalid_config)
+    assert not result.is_valid
+    assert len(result.errors) > 0
+
+
+@pytest.mark.asyncio
+async def test_diversity_metrics(evolution_engine):
+    """Test population diversity calculation"""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    # Create population with some diversity
+    population = [
+        Variant(uuid4(), [], 0, "prompt 1", {}, datetime.now(), fitness_score=0.8),
+        Variant(uuid4(), [], 0, "prompt 2", {}, datetime.now(), fitness_score=0.7),
+        Variant(uuid4(), [], 0, "prompt 1", {}, datetime.now(), fitness_score=0.9),  # duplicate
+    ]
+    evolution_engine.current_population = population
+    
+    diversity = evolution_engine.get_diversity_metrics()
+    assert 0 <= diversity.genetic_diversity <= 1
+    assert diversity.unique_variants == 2  # Two unique prompts
+    assert diversity.duplicate_ratio > 0
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_functionality(evolution_engine):
+    """Test checkpoint save and resume"""
+    import tempfile
+    import os
+    from uuid import uuid4
+    from datetime import datetime
+    
+    # Set up some state
+    evolution_engine.current_cycle_id = uuid4()
+    evolution_engine.current_generation = 2
+    evolution_engine.current_population = [Variant(uuid4(), [], 0, "test", {}, datetime.now())]
+    
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        checkpoint_path = f.name
+    
+    try:
+        # Save checkpoint
+        await evolution_engine.save_checkpoint(checkpoint_path)
+        assert os.path.exists(checkpoint_path)
+        
+        # Create new engine and resume
+        new_engine = EvolutionEngine(
+            MockVariantGenerator(),
+            MockSafetyValidator(),
+            MockSandboxManager(),
+            MockFitnessEvaluator()
+        )
+        
+        await new_engine.resume_from_checkpoint(checkpoint_path)
+        
+        # Verify state was restored
+        assert new_engine.current_cycle_id == evolution_engine.current_cycle_id
+        assert new_engine.current_generation == evolution_engine.current_generation
+        assert len(new_engine.current_population) == len(evolution_engine.current_population)
+        
+    finally:
+        if os.path.exists(checkpoint_path):
+            os.unlink(checkpoint_path)

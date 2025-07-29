@@ -125,3 +125,6 @@ dmypy.json
 logs/
 sandbox/
 evolution_cache/
+
+# Pickle
+*.pkl

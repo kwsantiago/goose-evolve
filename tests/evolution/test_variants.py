@@ -11,7 +11,7 @@ from uuid import UUID
 import pytest
 
 from evolution.interfaces import CrossoverType, PromptMutationType, Variant
-from evolution.variants import VariantGenerator
+from evolution.variants import VariantGenerator, PromptValidator, ComplexityMetrics, MutationEvent
 
 
 class TestVariantGenerator:
@@ -493,3 +493,410 @@ class TestMutationMethods:
                     ]
                 )
                 assert tone_found, f"Should contain {tone} tone modifier"
+
+
+class TestVariantGeneratorAdvanced:
+    """Test suite for advanced VariantGenerator functionality."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.generator = VariantGenerator(mutation_rate=0.2)
+        self.base_prompt = "You are a helpful assistant. Please provide accurate information."
+        self.base_variant = Variant(
+            id=UUID("12345678-1234-5678-1234-567812345678"),
+            parent_ids=[],
+            generation=0,
+            prompt=self.base_prompt,
+            configuration={"temperature": 0.7},
+            created_at=datetime.now()
+        )
+    
+    def test_deterministic_mode_basic(self):
+        """Test basic deterministic mode functionality."""
+        # Initially not deterministic
+        assert not self.generator.is_deterministic()
+        assert self.generator.get_random_seed() is None
+        
+        # Set deterministic mode
+        self.generator.set_random_seed(42)
+        assert self.generator.is_deterministic()
+        assert self.generator.get_random_seed() == 42
+        
+        # Disable deterministic mode
+        self.generator.disable_deterministic_mode()
+        assert not self.generator.is_deterministic()
+        assert self.generator.get_random_seed() is None
+    
+    def test_deterministic_mode_reproducibility(self):
+        """Test that deterministic mode produces reproducible results."""
+        seed = 123
+        
+        # Generate population with seed
+        self.generator.set_random_seed(seed)
+        population1 = self.generator.generate_population(self.base_prompt, 5)
+        
+        # Generate again with same seed
+        self.generator.set_random_seed(seed)
+        population2 = self.generator.generate_population(self.base_prompt, 5)
+        
+        # Should be identical
+        assert len(population1) == len(population2)
+        for v1, v2 in zip(population1, population2):
+            assert v1.prompt == v2.prompt
+            assert v1.configuration == v2.configuration
+    
+    def test_deterministic_mode_mutations(self):
+        """Test deterministic mutations."""
+        seed = 456
+        
+        # Mutate with seed
+        self.generator.set_random_seed(seed)
+        mutated1 = self.generator.mutate_variant(self.base_variant)
+        
+        # Mutate again with same seed
+        self.generator.set_random_seed(seed)
+        mutated2 = self.generator.mutate_variant(self.base_variant)
+        
+        # Should be identical (except for UUIDs and timestamps)
+        assert mutated1.prompt == mutated2.prompt
+        assert mutated1.configuration == mutated2.configuration
+    
+    def test_deterministic_mode_invalid_seed(self):
+        """Test error handling for invalid seeds."""
+        with pytest.raises(ValueError):
+            self.generator.set_random_seed("not_an_int")
+        
+        with pytest.raises(ValueError):
+            self.generator.set_random_seed(3.14)
+    
+    def test_mutation_history_tracking(self):
+        """Test mutation history tracking."""
+        # Initially no history
+        history = self.generator.get_mutation_history(self.base_variant)
+        assert len(history) == 0
+        
+        # Perform mutation
+        mutated = self.generator.mutate_variant(self.base_variant)
+        
+        # Check history was recorded
+        history = self.generator.get_mutation_history(mutated)
+        assert len(history) == 1
+        assert isinstance(history[0], MutationEvent)
+        assert history[0].source_variant_id == self.base_variant.id
+        assert history[0].target_variant_id == mutated.id
+        assert history[0].mutation_type in [mt.value for mt in PromptMutationType]
+    
+    def test_mutation_history_crossover(self):
+        """Test mutation history tracking for crossover."""
+        parent2 = Variant(
+            id=UUID("87654321-4321-8765-4321-876543218765"),
+            parent_ids=[],
+            generation=0,
+            prompt="Different prompt for testing.",
+            configuration={"temperature": 0.9},
+            created_at=datetime.now()
+        )
+        
+        offspring1, offspring2 = self.generator.crossover(self.base_variant, parent2)
+        
+        # Check crossover history
+        history1 = self.generator.get_mutation_history(offspring1)
+        history2 = self.generator.get_mutation_history(offspring2)
+        
+        assert len(history1) == 1
+        assert len(history2) == 1
+        assert "crossover" in history1[0].mutation_type
+        assert "crossover" in history2[0].mutation_type
+    
+    def test_complexity_analysis_basic(self):
+        """Test basic prompt complexity analysis."""
+        simple_prompt = "Hello world."
+        metrics = self.generator.analyze_prompt_complexity(simple_prompt)
+        
+        assert isinstance(metrics, ComplexityMetrics)
+        assert metrics.sentence_count == 1
+        assert metrics.word_count == 2
+        assert metrics.avg_sentence_length == 2.0
+        assert 0.0 <= metrics.lexical_diversity <= 1.0
+        assert 0.0 <= metrics.complexity_score <= 1.0
+    
+    def test_complexity_analysis_complex(self):
+        """Test complexity analysis with complex prompt."""
+        complex_prompt = (
+            "Please analyze the given data carefully. "
+            "Make sure to consider multiple perspectives and provide detailed explanations. "
+            "Think step by step through the problem and use concrete examples where helpful."
+        )
+        
+        metrics = self.generator.analyze_prompt_complexity(complex_prompt)
+        
+        assert metrics.sentence_count == 3
+        assert metrics.word_count > 20
+        assert metrics.instruction_density > 0.1  # Should have high instruction density
+        assert metrics.complexity_score > 0.3  # Should be relatively complex
+    
+    def test_complexity_analysis_empty(self):
+        """Test complexity analysis with empty/whitespace prompt."""
+        empty_metrics = self.generator.analyze_prompt_complexity("")
+        whitespace_metrics = self.generator.analyze_prompt_complexity("   \n\t  ")
+        
+        for metrics in [empty_metrics, whitespace_metrics]:
+            assert metrics.sentence_count == 0
+            assert metrics.word_count == 0
+            assert metrics.avg_sentence_length == 0.0
+            assert metrics.lexical_diversity == 0.0
+            assert metrics.complexity_score == 0.0
+    
+    def test_ab_pair_generation(self):
+        """Test A/B pair generation."""
+        variant_a, variant_b = self.generator.generate_ab_pair(self.base_variant)
+        
+        # Check basic properties
+        assert isinstance(variant_a, Variant)
+        assert isinstance(variant_b, Variant)
+        assert variant_a.id != variant_b.id
+        assert self.base_variant.id in variant_a.parent_ids
+        assert self.base_variant.id in variant_b.parent_ids
+        assert variant_a.generation == self.base_variant.generation + 1
+        assert variant_b.generation == self.base_variant.generation + 1
+        
+        # Check that they're different from base and each other
+        assert variant_a.prompt != self.base_variant.prompt
+        assert variant_b.prompt != self.base_variant.prompt
+        assert variant_a.prompt != variant_b.prompt
+        
+        # Check history was recorded
+        history_a = self.generator.get_mutation_history(variant_a)
+        history_b = self.generator.get_mutation_history(variant_b)
+        assert len(history_a) == 1
+        assert len(history_b) == 1
+        assert "ab_test" in history_a[0].mutation_type
+        assert "ab_test" in history_b[0].mutation_type
+    
+    def test_ab_pair_deterministic(self):
+        """Test A/B pair generation in deterministic mode."""
+        seed = 789
+        
+        # Generate A/B pair with seed
+        self.generator.set_random_seed(seed)
+        pair1_a, pair1_b = self.generator.generate_ab_pair(self.base_variant)
+        
+        # Generate again with same seed
+        self.generator.set_random_seed(seed)
+        pair2_a, pair2_b = self.generator.generate_ab_pair(self.base_variant)
+        
+        # Should be identical
+        assert pair1_a.prompt == pair2_a.prompt
+        assert pair1_b.prompt == pair2_b.prompt
+        assert pair1_a.configuration == pair2_a.configuration
+        assert pair1_b.configuration == pair2_b.configuration
+    
+    def test_custom_validator_registration(self):
+        """Test custom validator registration and usage."""
+        class TestValidator(PromptValidator):
+            def validate(self, prompt: str) -> tuple[bool, list[str]]:
+                if "forbidden" in prompt.lower():
+                    return False, ["Contains forbidden word"]
+                return True, []
+            
+            def get_name(self) -> str:
+                return "test_validator"
+        
+        validator = TestValidator()
+        
+        # Register validator
+        self.generator.register_validator(validator)
+        assert "test_validator" in self.generator.get_registered_validators()
+        
+        # Test validation with custom validator
+        valid_variant = Variant(
+            id=UUID("11111111-1111-1111-1111-111111111111"),
+            parent_ids=[],
+            generation=0,
+            prompt="This is a valid prompt.",
+            configuration={"temperature": 0.7},
+            created_at=datetime.now()
+        )
+        
+        invalid_variant = Variant(
+            id=UUID("22222222-2222-2222-2222-222222222222"),
+            parent_ids=[],
+            generation=0,
+            prompt="This contains a forbidden word.",
+            configuration={"temperature": 0.7},
+            created_at=datetime.now()
+        )
+        
+        is_valid, errors = self.generator.validate_variant(valid_variant)
+        assert is_valid
+        
+        is_invalid, errors = self.generator.validate_variant(invalid_variant)
+        assert not is_invalid
+        assert any("test_validator" in error for error in errors)
+    
+    def test_custom_validator_duplicate_name(self):
+        """Test error handling for duplicate validator names."""
+        class TestValidator1(PromptValidator):
+            def validate(self, prompt: str) -> tuple[bool, list[str]]:
+                return True, []
+            def get_name(self) -> str:
+                return "duplicate_name"
+        
+        class TestValidator2(PromptValidator):
+            def validate(self, prompt: str) -> tuple[bool, list[str]]:
+                return True, []
+            def get_name(self) -> str:
+                return "duplicate_name"
+        
+        self.generator.register_validator(TestValidator1())
+        
+        with pytest.raises(ValueError, match="already registered"):
+            self.generator.register_validator(TestValidator2())
+    
+    def test_custom_validator_unregistration(self):
+        """Test custom validator unregistration."""
+        class TestValidator(PromptValidator):
+            def validate(self, prompt: str) -> tuple[bool, list[str]]:
+                return True, []
+            def get_name(self) -> str:
+                return "removable_validator"
+        
+        validator = TestValidator()
+        self.generator.register_validator(validator)
+        assert "removable_validator" in self.generator.get_registered_validators()
+        
+        # Unregister existing validator
+        result = self.generator.unregister_validator("removable_validator")
+        assert result is True
+        assert "removable_validator" not in self.generator.get_registered_validators()
+        
+        # Try to unregister non-existent validator
+        result = self.generator.unregister_validator("non_existent")
+        assert result is False
+    
+    def test_custom_validator_exception_handling(self):
+        """Test handling of exceptions in custom validators."""
+        class FaultyValidator(PromptValidator):
+            def validate(self, prompt: str) -> tuple[bool, list[str]]:
+                raise RuntimeError("Validator crashed!")
+            def get_name(self) -> str:
+                return "faulty_validator"
+        
+        self.generator.register_validator(FaultyValidator())
+        
+        # Should handle exception gracefully
+        is_valid, errors = self.generator.validate_variant(self.base_variant)
+        assert not is_valid
+        assert any("faulty_validator" in error for error in errors)
+    
+    def test_performance_large_population(self):
+        """Test performance with large population generation."""
+        import time
+        
+        start_time = time.time()
+        large_population = self.generator.generate_population(self.base_prompt, 100)
+        end_time = time.time()
+        
+        # Should complete within reasonable time (adjust threshold as needed)
+        assert end_time - start_time < 5.0  # 5 seconds
+        assert len(large_population) == 100
+        assert all(isinstance(v, Variant) for v in large_population)
+    
+    def test_performance_complexity_analysis(self):
+        """Test performance of complexity analysis on large texts."""
+        import time
+        
+        # Create a long prompt
+        long_prompt = "This is a test sentence. " * 1000  # 1000 sentences
+        
+        start_time = time.time()
+        metrics = self.generator.analyze_prompt_complexity(long_prompt)
+        end_time = time.time()
+        
+        # Should complete within reasonable time
+        assert end_time - start_time < 2.0  # 2 seconds
+        assert metrics.sentence_count == 1000
+        assert metrics.word_count == 5000  # 5 words per sentence
+    
+    def test_memory_usage_mutation_history(self):
+        """Test that mutation history doesn't grow unbounded."""
+        variant = self.base_variant
+        
+        # Create many mutations to test history limit
+        for i in range(150):  # More than the max history limit (100)
+            variant = self.generator.mutate_variant(variant)
+        
+        # History should be limited
+        history = self.generator.get_mutation_history(variant)
+        assert len(history) <= 100  # Should respect the limit
+    
+    def test_edge_case_special_characters(self):
+        """Test handling of prompts with special characters."""
+        special_prompt = "Hello! 你好? émojis: 🎉🚀 @#$%^&*()_+ \n\t\r"
+        
+        population = self.generator.generate_population(special_prompt, 3)
+        assert len(population) == 3
+        
+        # Analyze complexity with special characters
+        metrics = self.generator.analyze_prompt_complexity(special_prompt)
+        assert metrics.word_count > 0
+        assert metrics.sentence_count > 0
+    
+    def test_edge_case_unicode_normalization(self):
+        """Test Unicode handling and normalization."""
+        # Different Unicode representations of the same character
+        prompt1 = "café"  # NFC form
+        prompt2 = "café"  # NFD form (different byte representation)
+        
+        metrics1 = self.generator.analyze_prompt_complexity(prompt1)
+        metrics2 = self.generator.analyze_prompt_complexity(prompt2)
+        
+        # Should handle both forms gracefully
+        assert metrics1.word_count > 0
+        assert metrics2.word_count > 0
+    
+    def test_cross_platform_consistency(self):
+        """Test that results are consistent across different line ending styles."""
+        # Different line ending styles
+        prompt_unix = "Line 1.\nLine 2.\nLine 3."
+        prompt_windows = "Line 1.\r\nLine 2.\r\nLine 3."
+        prompt_old_mac = "Line 1.\rLine 2.\rLine 3."
+        
+        metrics_unix = self.generator.analyze_prompt_complexity(prompt_unix)
+        metrics_windows = self.generator.analyze_prompt_complexity(prompt_windows)
+        metrics_old_mac = self.generator.analyze_prompt_complexity(prompt_old_mac)
+        
+        # Should produce similar results regardless of line endings
+        assert metrics_unix.sentence_count == metrics_windows.sentence_count == metrics_old_mac.sentence_count
+        assert metrics_unix.word_count == metrics_windows.word_count == metrics_old_mac.word_count
+    
+    def test_concurrent_generation_safety(self):
+        """Test thread safety of generation operations."""
+        import threading
+        import time
+        
+        results = []
+        errors = []
+        
+        def generate_variants():
+            try:
+                population = self.generator.generate_population(self.base_prompt, 10)
+                results.append(len(population))
+            except Exception as e:
+                errors.append(e)
+        
+        # Run multiple threads concurrently
+        threads = []
+        for i in range(5):
+            thread = threading.Thread(target=generate_variants)
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join(timeout=10)
+        
+        # Check results
+        assert len(errors) == 0, f"Concurrent generation had errors: {errors}"
+        assert len(results) == 5
+        assert all(result == 10 for result in results)
