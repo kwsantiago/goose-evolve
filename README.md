@@ -9,10 +9,6 @@ Goose Evolve is an open-source MCP extension for [Goose](https://block.github.io
 
 ## Current Status
 
-**4 out of 12 core components implemented and production-ready** - All pre-epic requirements completed. Ready to proceed with safety infrastructure and MCP integration.
-
-### Component Status
-
 #### Production-Ready Components
 - **Evolution Engine** - Full genetic algorithm orchestration with state persistence, error recovery, and convergence detection
 - **Variant Generator** - Deterministic mode, mutation lineage tracking, A/B testing, and 5 mutation strategies
