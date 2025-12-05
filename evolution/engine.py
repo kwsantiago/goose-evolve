@@ -7,18 +7,18 @@ import asyncio
 import gc
 import json
 import logging
+import math
 import pickle
 import random
-import math
 import statistics
 import threading
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-from abc import ABC, abstractmethod
 from uuid import UUID, uuid4
 
 from evolution.interfaces import (
@@ -39,32 +39,30 @@ logger = logging.getLogger(__name__)
 
 class EvolutionStrategy(ABC):
     """Abstract base class for evolution strategies"""
-    
+
     @abstractmethod
     async def evolve_generation(
-        self, 
+        self,
         population: List[Variant],
         fitness_scores: List[float],
-        config: 'EvolutionConfig'
+        config: "EvolutionConfig",
     ) -> List[Variant]:
         """Evolve a single generation using this strategy"""
         pass
-    
+
     @abstractmethod
     def select_survivors(
-        self, 
-        evaluated: List[Tuple[Variant, float]], 
-        config: 'EvolutionConfig'
+        self, evaluated: List[Tuple[Variant, float]], config: "EvolutionConfig"
     ) -> List[Variant]:
         """Select survivors for the next generation"""
         pass
-    
+
     @abstractmethod
     def should_terminate(
-        self, 
-        generation: int, 
-        fitness_history: List[List[float]], 
-        config: 'EvolutionConfig'
+        self,
+        generation: int,
+        fitness_history: List[List[float]],
+        config: "EvolutionConfig",
     ) -> bool:
         """Determine if evolution should terminate"""
         pass
@@ -72,31 +70,31 @@ class EvolutionStrategy(ABC):
 
 class GeneticAlgorithmStrategy(EvolutionStrategy):
     """Traditional genetic algorithm strategy"""
-    
+
     def __init__(self, variant_generator):
         self.variant_generator = variant_generator
-    
+
     async def evolve_generation(
-        self, 
+        self,
         population: List[Variant],
         fitness_scores: List[float],
-        config: 'EvolutionConfig'
+        config: "EvolutionConfig",
     ) -> List[Variant]:
         """Evolve using GA operations"""
         # Create evaluated population
         evaluated = list(zip(population, fitness_scores))
         evaluated.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Select survivors
         survivors = self.select_survivors(evaluated, config)
-        
+
         # Generate next generation
         next_generation = []
-        
+
         # Keep elite individuals
         elite_count = min(config.elite_count, len(survivors))
         next_generation.extend(survivors[:elite_count])
-        
+
         # Fill remaining population with offspring
         while len(next_generation) < config.population_size:
             if len(survivors) >= 2:
@@ -108,29 +106,33 @@ class GeneticAlgorithmStrategy(EvolutionStrategy):
                 parent = random.choice(survivors)
                 mutated = self.variant_generator.mutate_variant(parent)
                 next_generation.append(mutated)
-        
+
         # Trim to exact population size
-        return next_generation[:config.population_size]
-    
-    def select_survivors(self, evaluated: List[Tuple[Variant, float]], config: 'EvolutionConfig') -> List[Variant]:
+        return next_generation[: config.population_size]
+
+    def select_survivors(
+        self, evaluated: List[Tuple[Variant, float]], config: "EvolutionConfig"
+    ) -> List[Variant]:
         """Tournament selection for GA"""
         survivors = []
         population = [v for v, _ in evaluated]
         fitness_map = {v.id: score for v, score in evaluated}
-        
+
         # Always keep elite individuals
         elite_count = min(config.elite_count, len(evaluated))
         survivors.extend([v for v, _ in evaluated[:elite_count]])
-        
+
         # Tournament selection for remaining slots
-        remaining_slots = int(config.population_size * config.selection_pressure) - elite_count
-        
+        remaining_slots = (
+            int(config.population_size * config.selection_pressure) - elite_count
+        )
+
         for _ in range(max(0, remaining_slots)):
             tournament_size = min(config.tournament_size, len(population))
             tournament = random.sample(population, tournament_size)
             winner = max(tournament, key=lambda v: fitness_map.get(v.id, 0))
             survivors.append(winner)
-        
+
         # Remove duplicates while preserving order
         seen = set()
         unique_survivors = []
@@ -138,39 +140,56 @@ class GeneticAlgorithmStrategy(EvolutionStrategy):
             if v.id not in seen:
                 seen.add(v.id)
                 unique_survivors.append(v)
-        
+
         return unique_survivors
-    
-    def should_terminate(self, generation: int, fitness_history: List[List[float]], config: 'EvolutionConfig') -> bool:
+
+    def should_terminate(
+        self,
+        generation: int,
+        fitness_history: List[List[float]],
+        config: "EvolutionConfig",
+    ) -> bool:
         """GA termination criteria"""
         # Check generation limit
         if generation >= config.max_generations:
             return True
-        
+
         # Check fitness threshold
         if fitness_history and fitness_history[-1]:
             best_fitness = max(fitness_history[-1])
             if best_fitness >= config.fitness_threshold:
                 return True
-        
+
         return False
 
 
 class EvolutionStrategyAlgorithm(EvolutionStrategy):
     """Evolution Strategy (ES) algorithm - future implementation"""
-    
+
     def __init__(self, variant_generator):
         self.variant_generator = variant_generator
-    
-    async def evolve_generation(self, population: List[Variant], fitness_scores: List[float], config: 'EvolutionConfig') -> List[Variant]:
+
+    async def evolve_generation(
+        self,
+        population: List[Variant],
+        fitness_scores: List[float],
+        config: "EvolutionConfig",
+    ) -> List[Variant]:
         """ES evolution - placeholder for future implementation"""
         raise NotImplementedError("Evolution Strategy algorithm not yet implemented")
-    
-    def select_survivors(self, evaluated: List[Tuple[Variant, float]], config: 'EvolutionConfig') -> List[Variant]:
+
+    def select_survivors(
+        self, evaluated: List[Tuple[Variant, float]], config: "EvolutionConfig"
+    ) -> List[Variant]:
         """ES selection - placeholder"""
         raise NotImplementedError("Evolution Strategy selection not yet implemented")
-    
-    def should_terminate(self, generation: int, fitness_history: List[List[float]], config: 'EvolutionConfig') -> bool:
+
+    def should_terminate(
+        self,
+        generation: int,
+        fitness_history: List[List[float]],
+        config: "EvolutionConfig",
+    ) -> bool:
         """ES termination - placeholder"""
         raise NotImplementedError("Evolution Strategy termination not yet implemented")
 
@@ -178,6 +197,7 @@ class EvolutionStrategyAlgorithm(EvolutionStrategy):
 @dataclass
 class EventBusConfig:
     """Configuration for the event bus"""
+
     max_queue_size: int = 1000
     max_concurrent_handlers: int = 10
     handler_timeout: float = 30.0
@@ -186,11 +206,13 @@ class EventBusConfig:
 
 class AsyncEventBus:
     """Async event bus with backpressure handling"""
-    
+
     def __init__(self, config: Optional[EventBusConfig] = None):
         self.config = config or EventBusConfig()
         self.handlers: Dict[str, List[Callable]] = {}
-        self.event_queue: asyncio.Queue = asyncio.Queue(maxsize=self.config.max_queue_size)
+        self.event_queue: asyncio.Queue = asyncio.Queue(
+            maxsize=self.config.max_queue_size
+        )
         self.semaphore = asyncio.Semaphore(self.config.max_concurrent_handlers)
         self.running = False
         self._processor_task: Optional[asyncio.Task] = None
@@ -198,15 +220,15 @@ class AsyncEventBus:
             "events_processed": 0,
             "events_dropped": 0,
             "handler_errors": 0,
-            "queue_overflows": 0
+            "queue_overflows": 0,
         }
-    
+
     def subscribe(self, event_type: str, handler: Callable) -> None:
         """Subscribe to an event type"""
         if event_type not in self.handlers:
             self.handlers[event_type] = []
         self.handlers[event_type].append(handler)
-    
+
     def unsubscribe(self, event_type: str, handler: Callable) -> None:
         """Unsubscribe from an event type"""
         if event_type in self.handlers:
@@ -216,17 +238,17 @@ class AsyncEventBus:
                     del self.handlers[event_type]
             except ValueError:
                 pass
-    
+
     async def emit(self, event_type: str, data: Dict[str, Any]) -> bool:
         """Emit an event with backpressure handling"""
         event = {"type": event_type, "data": data, "timestamp": datetime.now()}
-        
+
         try:
             self.event_queue.put_nowait(event)
             return True
         except asyncio.QueueFull:
             self._stats["queue_overflows"] += 1
-            
+
             if self.config.backpressure_strategy == "drop_oldest":
                 try:
                     self.event_queue.get_nowait()  # Remove oldest event
@@ -241,21 +263,21 @@ class AsyncEventBus:
             elif self.config.backpressure_strategy == "block":
                 await self.event_queue.put(event)
                 return True
-            
+
             return False
-    
+
     async def start(self) -> None:
         """Start the event processor"""
         if not self.running:
             self.running = True
             self._processor_task = asyncio.create_task(self._process_events())
-    
+
     async def stop(self) -> None:
         """Stop the event processor"""
         self.running = False
         if self._processor_task:
             await self._processor_task
-    
+
     async def _process_events(self) -> None:
         """Process events from the queue"""
         while self.running:
@@ -268,75 +290,85 @@ class AsyncEventBus:
                 continue
             except Exception as e:
                 logger.error(f"Event processing error: {e}")
-    
+
     async def _handle_event(self, event: Dict[str, Any]) -> None:
         """Handle a single event with concurrency control"""
         event_type = event["type"]
         if event_type not in self.handlers:
             return
-        
+
         async def handle_with_semaphore(handler):
             async with self.semaphore:
                 try:
                     if asyncio.iscoroutinefunction(handler):
                         await asyncio.wait_for(
-                            handler(event["data"]), 
-                            timeout=self.config.handler_timeout
+                            handler(event["data"]), timeout=self.config.handler_timeout
                         )
                     else:
                         handler(event["data"])
                 except Exception as e:
                     self._stats["handler_errors"] += 1
                     logger.error(f"Event handler error for {event_type}: {e}")
-        
+
         # Execute all handlers concurrently
-        tasks = [handle_with_semaphore(handler) for handler in self.handlers[event_type]]
+        tasks = [
+            handle_with_semaphore(handler) for handler in self.handlers[event_type]
+        ]
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get event bus statistics"""
         return {
             **self._stats,
             "queue_size": self.event_queue.qsize(),
-            "active_handlers": sum(len(handlers) for handlers in self.handlers.values()),
-            "subscribed_event_types": list(self.handlers.keys())
+            "active_handlers": sum(
+                len(handlers) for handlers in self.handlers.values()
+            ),
+            "subscribed_event_types": list(self.handlers.keys()),
         }
 
 
 class EvolutionError(Exception):
     """Base exception for evolution operations"""
+
     pass
 
 
 class ValidationError(EvolutionError):
     """Raised when variant validation fails"""
+
     pass
 
 
 class SandboxError(EvolutionError):
     """Raised when sandbox testing fails"""
+
     pass
 
 
 class FitnessEvaluationError(EvolutionError):
     """Raised when fitness evaluation fails"""
+
     pass
 
 
 class ResourceExhaustionError(EvolutionError):
     """Raised when system resources are exhausted"""
+
     pass
 
 
 class ConvergenceError(EvolutionError):
     """Raised when population converges without meeting criteria"""
+
     pass
 
 
 @dataclass
 class DiversityMetrics:
     """Population diversity measurements"""
+
     genetic_diversity: float  # 0-1, higher is more diverse
     phenotypic_diversity: float  # 0-1, based on fitness distribution
     unique_variants: int
@@ -347,6 +379,7 @@ class DiversityMetrics:
 @dataclass
 class EvolutionMetrics:
     """Performance metrics for evolution cycles"""
+
     cycle_id: UUID
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -362,6 +395,7 @@ class EvolutionMetrics:
 @dataclass
 class CheckpointData:
     """Evolution state for persistence"""
+
     cycle_id: UUID
     trigger: Any  # EvolutionTriggerEvent
     current_generation: int
@@ -399,7 +433,7 @@ class EvolutionConfig:
     max_generations: int = 10
     fitness_threshold: float = 0.95
     parallel_evaluations: int = 10
-    
+
     # New configuration options
     min_diversity_threshold: float = 0.1
     convergence_window: int = 3
@@ -423,8 +457,8 @@ class EvolutionEngine(EvolutionEngineBase):
         safety_validator,
         sandbox_manager,
         fitness_evaluator,
-        config: Optional['EvolutionConfig'] = None,
-        strategy: Optional['EvolutionStrategy'] = None,
+        config: Optional["EvolutionConfig"] = None,
+        strategy: Optional["EvolutionStrategy"] = None,
     ):
         self.variant_generator = variant_generator
         self.safety_validator = safety_validator
@@ -477,12 +511,12 @@ class EvolutionEngine(EvolutionEngineBase):
             self.current_cycle_id = cycle_id
             self.metrics = EvolutionMetrics(cycle_id=cycle_id, start_time=start_time)
             self.current_population = population
-            
+
             # Start event bus if not already started
             if not self._event_bus_started:
                 await self.event_bus.start()
                 self._event_bus_started = True
-            
+
             # Main evolution loop
             best_variants = []
             avg_fitness = 0.0
@@ -491,7 +525,7 @@ class EvolutionEngine(EvolutionEngineBase):
                 if self.is_cancelled:
                     logger.info("Evolution cancelled by user")
                     break
-                    
+
                 generation_start = time.time()
                 self.current_generation = generation
                 logger.info(f"Generation {generation}/{self.config.max_generations}")
@@ -530,31 +564,33 @@ class EvolutionEngine(EvolutionEngineBase):
                 # Record fitness history
                 generation_fitness = [score for _, score in evaluated_population]
                 self.fitness_history.append(generation_fitness)
-                
+
                 # Update metrics
                 generation_time = time.time() - generation_start
                 self.metrics.generation_times.append(generation_time)
                 diversity = self.get_diversity_metrics()
                 self.metrics.diversity_history.append(diversity)
                 self.metrics.convergence_history.append(best_fitness)
-                
+
                 # Resource cleanup
                 await self._cleanup_resources()
-                
+
                 # Auto-checkpoint if enabled
-                if (self.config.enable_auto_checkpoints and 
-                    generation % self.config.checkpoint_interval == 0):
+                if (
+                    self.config.enable_auto_checkpoints
+                    and generation % self.config.checkpoint_interval == 0
+                ):
                     checkpoint_path = f"auto_checkpoint_{cycle_id}_{generation}.pkl"
                     try:
                         await self.save_checkpoint(checkpoint_path)
                     except Exception as e:
                         logger.warning(f"Auto-checkpoint failed: {e}")
-                
+
                 # Check convergence
                 if self._check_convergence():
                     logger.info("Population converged, ending evolution")
                     break
-                
+
                 # Select top performers
                 best_variants = [
                     v
@@ -563,10 +599,12 @@ class EvolutionEngine(EvolutionEngineBase):
                 ]
 
                 # Check strategy-specific termination criteria
-                if self.strategy.should_terminate(generation, self.fitness_history, self.config):
+                if self.strategy.should_terminate(
+                    generation, self.fitness_history, self.config
+                ):
                     logger.info("Strategy termination criteria met, ending evolution")
                     break
-                
+
                 if best_variants or best_fitness >= self.config.fitness_threshold:
                     logger.info("Fitness threshold reached, ending evolution")
                     break
@@ -574,14 +612,16 @@ class EvolutionEngine(EvolutionEngineBase):
                 # Use strategy to generate next generation
                 generation_fitness = [score for _, score in evaluated_population]
                 population = await self.strategy.evolve_generation(
-                    [v for v, _ in evaluated_population], generation_fitness, self.config
+                    [v for v, _ in evaluated_population],
+                    generation_fitness,
+                    self.config,
                 )
                 self.current_population = population
 
             # Finalize metrics
             if self.metrics:
                 self.metrics.end_time = datetime.now()
-            
+
             # Calculate final metrics
             duration = (datetime.now() - start_time).total_seconds()
 
@@ -605,7 +645,7 @@ class EvolutionEngine(EvolutionEngineBase):
         except Exception as e:
             error_type = type(e).__name__
             logger.error(f"Evolution cycle failed ({error_type}): {e}")
-            
+
             # Attempt recovery based on error type
             try:
                 recovery_result = await self._attempt_error_recovery(e, cycle_id)
@@ -614,14 +654,15 @@ class EvolutionEngine(EvolutionEngineBase):
                     return recovery_result
             except Exception as recovery_error:
                 logger.error(f"Recovery failed: {recovery_error}")
-            
+
             self._emit_event(
-                "evolution_failed", {
-                    "cycle_id": cycle_id, 
+                "evolution_failed",
+                {
+                    "cycle_id": cycle_id,
                     "error": str(e),
                     "error_type": error_type,
-                    "recovery_attempted": True
-                }
+                    "recovery_attempted": True,
+                },
             )
             raise EvolutionError(f"Evolution cycle failed: {e}") from e
 
@@ -805,7 +846,7 @@ class EvolutionEngine(EvolutionEngineBase):
         """Add event listener for evolution events"""
         self.event_listeners.append((event_type, callback))
         self.event_bus.subscribe(event_type, callback)
-    
+
     def remove_event_listener(self, event_type: str, callback: Callable):
         """Remove event listener"""
         try:
@@ -823,17 +864,17 @@ class EvolutionEngine(EvolutionEngineBase):
                     callback(data)
                 except Exception as e:
                     logger.error(f"Event listener error: {e}")
-        
+
         # New async event bus with backpressure
         asyncio.create_task(self._emit_async_event(event_type, data))
-    
+
     async def _emit_async_event(self, event_type: str, data: Dict[str, Any]):
         """Emit event via async event bus"""
         # Ensure event bus is started
         if not self._event_bus_started:
             await self.event_bus.start()
             self._event_bus_started = True
-            
+
         success = await self.event_bus.emit(event_type, data)
         if not success:
             logger.warning(f"Failed to emit event {event_type} due to backpressure")
@@ -851,14 +892,14 @@ class EvolutionEngine(EvolutionEngineBase):
             config=self.config,
             metrics=self.metrics,
             fitness_history=self.fitness_history,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         checkpoint_path = Path(path)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         try:
-            with open(checkpoint_path, 'wb') as f:
+            with open(checkpoint_path, "wb") as f:
                 pickle.dump(checkpoint_data, f)
             logger.info(f"Checkpoint saved to {path}")
         except Exception as e:
@@ -871,17 +912,19 @@ class EvolutionEngine(EvolutionEngineBase):
             raise FileNotFoundError(f"Checkpoint file not found: {path}")
 
         try:
-            with open(checkpoint_path, 'rb') as f:
+            with open(checkpoint_path, "rb") as f:
                 checkpoint_data: CheckpointData = pickle.load(f)
-            
+
             self.current_cycle_id = checkpoint_data.cycle_id
             self.current_generation = checkpoint_data.current_generation
             self.current_population = checkpoint_data.population
             self.config = checkpoint_data.config
             self.metrics = checkpoint_data.metrics
             self.fitness_history = checkpoint_data.fitness_history
-            
-            logger.info(f"Resumed from checkpoint at generation {self.current_generation}")
+
+            logger.info(
+                f"Resumed from checkpoint at generation {self.current_generation}"
+            )
         except Exception as e:
             raise EvolutionError(f"Failed to resume from checkpoint: {e}") from e
 
@@ -893,56 +936,65 @@ class EvolutionEngine(EvolutionEngineBase):
                 phenotypic_diversity=0.0,
                 unique_variants=0,
                 duplicate_ratio=1.0,
-                entropy=0.0
+                entropy=0.0,
             )
 
         # Calculate genetic diversity (based on prompt similarity)
         unique_prompts = set(v.prompt for v in self.current_population)
         genetic_diversity = len(unique_prompts) / len(self.current_population)
-        
+
         # Calculate phenotypic diversity (based on fitness scores)
-        fitness_scores = [v.fitness_score for v in self.current_population if v.fitness_score is not None]
+        fitness_scores = [
+            v.fitness_score
+            for v in self.current_population
+            if v.fitness_score is not None
+        ]
         if fitness_scores:
-            phenotypic_diversity = statistics.stdev(fitness_scores) if len(fitness_scores) > 1 else 0.0
+            phenotypic_diversity = (
+                statistics.stdev(fitness_scores) if len(fitness_scores) > 1 else 0.0
+            )
         else:
             phenotypic_diversity = 0.0
-        
+
         # Calculate entropy
         if unique_prompts:
-            prompt_counts = {}
+            prompt_counts: Dict[str, int] = {}
             for variant in self.current_population:
                 prompt_counts[variant.prompt] = prompt_counts.get(variant.prompt, 0) + 1
-            
+
             total = len(self.current_population)
-            entropy = -sum((count/total) * math.log2(count/total) 
-                          for count in prompt_counts.values() if count > 0)
+            entropy = -sum(
+                (count / total) * math.log2(count / total)
+                for count in prompt_counts.values()
+                if count > 0
+            )
         else:
             entropy = 0.0
-        
+
         return DiversityMetrics(
             genetic_diversity=genetic_diversity,
             phenotypic_diversity=min(phenotypic_diversity, 1.0),
             unique_variants=len(unique_prompts),
             duplicate_ratio=1.0 - genetic_diversity,
-            entropy=entropy
+            entropy=entropy,
         )
 
     async def cancel_evolution(self) -> None:
         """Gracefully stop evolution"""
         self.is_cancelled = True
         logger.info("Evolution cancellation requested")
-        
+
         # Cancel all running tasks
         for task in self._cleanup_tasks:
             if not task.done():
                 task.cancel()
-        
+
         # Clean up resources
         await self._cleanup_resources()
-        
+
         # Stop event bus
         await self.event_bus.stop()
-        
+
         # Save emergency checkpoint if possible
         if self.current_cycle_id and self.config.enable_auto_checkpoints:
             try:
@@ -952,10 +1004,10 @@ class EvolutionEngine(EvolutionEngineBase):
             except Exception as e:
                 logger.error(f"Failed to save emergency checkpoint: {e}")
 
-    def validate_config(self, config: 'EvolutionConfig') -> ValidationResult:
+    def validate_config(self, config: "EvolutionConfig") -> ValidationResult:
         """Validate configuration parameters"""
         errors = []
-        
+
         if config.population_size <= 0:
             errors.append("Population size must be positive")
         if config.tournament_size <= 0:
@@ -982,66 +1034,85 @@ class EvolutionEngine(EvolutionEngineBase):
             errors.append("Convergence window must be positive")
         if config.max_memory_mb <= 0:
             errors.append("Max memory limit must be positive")
-        
+
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
-    async def _attempt_error_recovery(self, error: Exception, cycle_id: UUID) -> Optional[Dict[str, Any]]:
+    async def _attempt_error_recovery(
+        self, error: Exception, cycle_id: UUID
+    ) -> Optional[Dict[str, Any]]:
         """Attempt to recover from evolution errors"""
         for attempt in range(self.config.error_retry_attempts):
-            logger.info(f"Recovery attempt {attempt + 1}/{self.config.error_retry_attempts}")
-            
+            logger.info(
+                f"Recovery attempt {attempt + 1}/{self.config.error_retry_attempts}"
+            )
+
             try:
                 await asyncio.sleep(self.config.error_retry_delay * (attempt + 1))
-                
+
                 if isinstance(error, ValidationError):
                     # Generate new population if validation failed
                     base_agent = await self._get_base_agent()
-                    self.current_population = await self._generate_population(base_agent)
+                    self.current_population = await self._generate_population(
+                        base_agent
+                    )
                     return None  # Continue with new population
-                    
+
                 elif isinstance(error, ResourceExhaustionError):
                     # Clean up resources and reduce population
                     await self._cleanup_resources()
-                    self.config.population_size = max(10, self.config.population_size // 2)
-                    logger.info(f"Reduced population size to {self.config.population_size}")
+                    self.config.population_size = max(
+                        10, self.config.population_size // 2
+                    )
+                    logger.info(
+                        f"Reduced population size to {self.config.population_size}"
+                    )
                     return None
-                    
+
                 elif isinstance(error, SandboxError):
                     # Retry with reduced parallelism
-                    self.config.parallel_evaluations = max(1, self.config.parallel_evaluations // 2)
-                    logger.info(f"Reduced parallel evaluations to {self.config.parallel_evaluations}")
+                    self.config.parallel_evaluations = max(
+                        1, self.config.parallel_evaluations // 2
+                    )
+                    logger.info(
+                        f"Reduced parallel evaluations to {self.config.parallel_evaluations}"
+                    )
                     return None
-                    
+
             except Exception as recovery_error:
-                logger.warning(f"Recovery attempt {attempt + 1} failed: {recovery_error}")
+                logger.warning(
+                    f"Recovery attempt {attempt + 1} failed: {recovery_error}"
+                )
                 continue
-        
+
         return None  # Recovery failed
 
     async def _cleanup_resources(self) -> None:
         """Clean up memory and resources after each generation"""
         # Clear completed tasks
         self._cleanup_tasks = {t for t in self._cleanup_tasks if not t.done()}
-        
+
         # Force garbage collection
         gc.collect()
-        
+
         # Check memory usage
         try:
             import psutil
+
             process = psutil.Process()
             memory_mb = process.memory_info().rss / 1024 / 1024
         except ImportError:
             logger.warning("psutil not available, skipping memory monitoring")
             memory_mb = 0.0
-        
+
         if memory_mb > self.config.max_memory_mb:
-            logger.warning(f"Memory usage ({memory_mb:.1f}MB) exceeds limit ({self.config.max_memory_mb}MB)")
+            logger.warning(
+                f"Memory usage ({memory_mb:.1f}MB) exceeds limit ({self.config.max_memory_mb}MB)"
+            )
             raise ResourceExhaustionError(f"Memory limit exceeded: {memory_mb:.1f}MB")
-        
+
         if self.metrics:
             self.metrics.memory_usage.append(memory_mb)
-    
+
     def get_event_bus_stats(self) -> Dict[str, Any]:
         """Get event bus performance statistics"""
         return self.event_bus.get_stats()
@@ -1050,56 +1121,92 @@ class EvolutionEngine(EvolutionEngineBase):
         """Check if population has converged"""
         if len(self.fitness_history) < self.config.convergence_window:
             return False
-        
-        recent_generations = self.fitness_history[-self.config.convergence_window:]
-        
+
+        recent_generations = self.fitness_history[-self.config.convergence_window :]
+
         # Check if best fitness has plateaued
         best_fitnesses = [max(generation) for generation in recent_generations]
-        fitness_variance = statistics.variance(best_fitnesses) if len(best_fitnesses) > 1 else float('inf')
-        
+        fitness_variance = (
+            statistics.variance(best_fitnesses)
+            if len(best_fitnesses) > 1
+            else float("inf")
+        )
+
         # Check diversity
         diversity = self.get_diversity_metrics()
-        
+
         is_converged = (
-            fitness_variance < self.config.convergence_threshold and
-            diversity.genetic_diversity < self.config.min_diversity_threshold
+            fitness_variance < self.config.convergence_threshold
+            and diversity.genetic_diversity < self.config.min_diversity_threshold
         )
-        
+
         if is_converged:
-            logger.info(f"Convergence detected: fitness_variance={fitness_variance:.4f}, diversity={diversity.genetic_diversity:.4f}")
-        
+            logger.info(
+                f"Convergence detected: fitness_variance={fitness_variance:.4f}, diversity={diversity.genetic_diversity:.4f}"
+            )
+
         return is_converged
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get comprehensive performance metrics for the current cycle"""
         if not self.metrics:
             return {}
-        
+
         total_duration = 0.0
         if self.metrics.end_time:
-            total_duration = (self.metrics.end_time - self.metrics.start_time).total_seconds()
-        
+            total_duration = (
+                self.metrics.end_time - self.metrics.start_time
+            ).total_seconds()
+
         return {
             "cycle_id": str(self.metrics.cycle_id),
             "total_duration_seconds": total_duration,
             "generations_completed": self.current_generation,
-            "avg_generation_time": statistics.mean(self.metrics.generation_times) if self.metrics.generation_times else 0.0,
-            "avg_validation_time": statistics.mean(self.metrics.validation_times) if self.metrics.validation_times else 0.0,
-            "avg_testing_time": statistics.mean(self.metrics.testing_times) if self.metrics.testing_times else 0.0,
-            "avg_evaluation_time": statistics.mean(self.metrics.evaluation_times) if self.metrics.evaluation_times else 0.0,
-            "peak_memory_usage_mb": max(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0,
-            "avg_memory_usage_mb": statistics.mean(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0,
-            "final_diversity": self.get_diversity_metrics().__dict__ if self.current_population else None,
+            "avg_generation_time": (
+                statistics.mean(self.metrics.generation_times)
+                if self.metrics.generation_times
+                else 0.0
+            ),
+            "avg_validation_time": (
+                statistics.mean(self.metrics.validation_times)
+                if self.metrics.validation_times
+                else 0.0
+            ),
+            "avg_testing_time": (
+                statistics.mean(self.metrics.testing_times)
+                if self.metrics.testing_times
+                else 0.0
+            ),
+            "avg_evaluation_time": (
+                statistics.mean(self.metrics.evaluation_times)
+                if self.metrics.evaluation_times
+                else 0.0
+            ),
+            "peak_memory_usage_mb": (
+                max(self.metrics.memory_usage) if self.metrics.memory_usage else 0.0
+            ),
+            "avg_memory_usage_mb": (
+                statistics.mean(self.metrics.memory_usage)
+                if self.metrics.memory_usage
+                else 0.0
+            ),
+            "final_diversity": (
+                self.get_diversity_metrics().__dict__
+                if self.current_population
+                else None
+            ),
             "convergence_achieved": self._check_convergence(),
-            "fitness_improvement": self._calculate_fitness_improvement()
+            "fitness_improvement": self._calculate_fitness_improvement(),
         }
-    
+
     def _calculate_fitness_improvement(self) -> float:
         """Calculate overall fitness improvement from start to current generation"""
         if len(self.fitness_history) < 2:
             return 0.0
-        
+
         initial_best = max(self.fitness_history[0]) if self.fitness_history[0] else 0.0
-        current_best = max(self.fitness_history[-1]) if self.fitness_history[-1] else 0.0
-        
+        current_best = (
+            max(self.fitness_history[-1]) if self.fitness_history[-1] else 0.0
+        )
+
         return current_best - initial_best
