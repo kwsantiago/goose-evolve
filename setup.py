@@ -17,4 +17,9 @@ setup(
     extras_require={
         "dev": ["pytest", "pytest-asyncio", "pytest-mock", "black", "isort", "mypy"],
     },
+    entry_points={
+        "console_scripts": [
+            "goose-evolve=goose_evolve.cli:main",
+        ],
+    },
 )

@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MutationEvent:
     """Record of a single mutation operation."""
+
     timestamp: datetime
     mutation_type: str
     source_variant_id: UUID
@@ -37,6 +38,7 @@ class MutationEvent:
 @dataclass
 class ComplexityMetrics:
     """Metrics for prompt complexity analysis."""
+
     sentence_count: int
     word_count: int
     avg_sentence_length: float
@@ -47,12 +49,12 @@ class ComplexityMetrics:
 
 class PromptValidator(ABC):
     """Abstract base class for custom prompt validators."""
-    
+
     @abstractmethod
     def validate(self, prompt: str) -> Tuple[bool, List[str]]:
         """Validate a prompt and return (is_valid, errors)."""
         pass
-    
+
     @abstractmethod
     def get_name(self) -> str:
         """Get validator name for identification."""
@@ -68,14 +70,14 @@ class VariantGenerator(VariantGeneratorBase):
     def __init__(self, mutation_rate: float = DEFAULT_MUTATION_RATE):
         self.mutation_rate = mutation_rate
         self.mutation_templates = self._initialize_mutation_templates()
-        
+
         # Deterministic generation support
         self._random_seed: Optional[int] = None
         self._deterministic_mode = False
-        
+
         # Mutation history tracking
         self._mutation_history: Dict[UUID, List[MutationEvent]] = {}
-        
+
         # Custom validators registry
         self._custom_validators: List[PromptValidator] = []
 
@@ -230,18 +232,20 @@ class VariantGenerator(VariantGeneratorBase):
             created_at=datetime.now(),
             fitness_score=None,
         )
-        
+
         # Record mutation event
-        self._record_mutation_event(MutationEvent(
-            timestamp=datetime.now(),
-            mutation_type=mutation_type.value,
-            source_variant_id=variant.id,
-            target_variant_id=new_variant.id,
-            details={
-                "mutation_rate": self.mutation_rate,
-                "config_mutated": mutated_config != variant.configuration
-            }
-        ))
+        self._record_mutation_event(
+            MutationEvent(
+                timestamp=datetime.now(),
+                mutation_type=mutation_type.value,
+                source_variant_id=variant.id,
+                target_variant_id=new_variant.id,
+                details={
+                    "mutation_rate": self.mutation_rate,
+                    "config_mutated": mutated_config != variant.configuration,
+                },
+            )
+        )
 
         self.generation_stats["mutations_applied"] += 1
         return new_variant
@@ -459,22 +463,26 @@ class VariantGenerator(VariantGeneratorBase):
         )
 
         # Record crossover events
-        self._record_mutation_event(MutationEvent(
-            timestamp=datetime.now(),
-            mutation_type="crossover_offspring1",
-            source_variant_id=parent1.id,
-            target_variant_id=offspring1.id,
-            details={"crossover_type": "uniform", "parent2_id": str(parent2.id)}
-        ))
-        
-        self._record_mutation_event(MutationEvent(
-            timestamp=datetime.now(),
-            mutation_type="crossover_offspring2",
-            source_variant_id=parent2.id,
-            target_variant_id=offspring2.id,
-            details={"crossover_type": "uniform", "parent1_id": str(parent1.id)}
-        ))
-        
+        self._record_mutation_event(
+            MutationEvent(
+                timestamp=datetime.now(),
+                mutation_type="crossover_offspring1",
+                source_variant_id=parent1.id,
+                target_variant_id=offspring1.id,
+                details={"crossover_type": "uniform", "parent2_id": str(parent2.id)},
+            )
+        )
+
+        self._record_mutation_event(
+            MutationEvent(
+                timestamp=datetime.now(),
+                mutation_type="crossover_offspring2",
+                source_variant_id=parent2.id,
+                target_variant_id=offspring2.id,
+                details={"crossover_type": "uniform", "parent1_id": str(parent1.id)},
+            )
+        )
+
         self.generation_stats["crossovers_performed"] += 1
         return (offspring1, offspring2)
 
@@ -583,34 +591,35 @@ class VariantGenerator(VariantGeneratorBase):
     def get_validation_config(self) -> Dict[str, Any]:
         """Get current validation configuration."""
         return self.validation_config.copy()
-    
+
     def set_random_seed(self, seed: int) -> None:
         """Enable deterministic generation with a specific seed.
-        
+
         Args:
             seed: Random seed for reproducible generation
         """
         if not isinstance(seed, int):
             raise ValueError(f"Seed must be an integer, got {type(seed)}")
-        
+
         self._random_seed = seed
         self._deterministic_mode = True
         random.seed(seed)
         logger.info(f"Set deterministic mode with seed {seed}")
-    
+
     def disable_deterministic_mode(self) -> None:
         """Disable deterministic mode and return to random generation."""
         self._random_seed = None
         self._deterministic_mode = False
         # Re-seed with current time to ensure randomness
         import time
+
         random.seed(int(time.time() * 1000000) % (2**32))
         logger.info("Disabled deterministic mode")
-    
+
     def is_deterministic(self) -> bool:
         """Check if generator is in deterministic mode."""
         return self._deterministic_mode
-    
+
     def get_random_seed(self) -> Optional[int]:
         """Get current random seed if in deterministic mode."""
         return self._random_seed
@@ -653,16 +662,20 @@ class VariantGenerator(VariantGeneratorBase):
         # Validate configuration
         config_errors = self._validate_configuration(variant.configuration)
         errors.extend(config_errors)
-        
+
         # Run custom validators
         for validator in self._custom_validators:
             try:
                 is_custom_valid, custom_errors = validator.validate(variant.prompt)
                 if not is_custom_valid:
-                    errors.extend([f"{validator.get_name()}: {error}" for error in custom_errors])
+                    errors.extend(
+                        [f"{validator.get_name()}: {error}" for error in custom_errors]
+                    )
             except Exception as e:
                 logger.warning(f"Custom validator {validator.get_name()} failed: {e}")
-                errors.append(f"Custom validator {validator.get_name()} encountered an error")
+                errors.append(
+                    f"Custom validator {validator.get_name()} encountered an error"
+                )
 
         is_valid = len(errors) == 0
         if not is_valid:
@@ -729,40 +742,44 @@ class VariantGenerator(VariantGeneratorBase):
                 logger.debug(f"Variant {variant.id} failed validation: {errors}")
 
         return valid_variants
-    
+
     def get_mutation_history(self, variant: Variant) -> List[MutationEvent]:
         """Get mutation history for a specific variant.
-        
+
         Args:
             variant: Variant to get history for
-            
+
         Returns:
             List of mutation events in chronological order
         """
         return self._mutation_history.get(variant.id, []).copy()
-    
+
     def _record_mutation_event(self, event: MutationEvent) -> None:
         """Record a mutation event in the history.
-        
+
         Args:
             event: Mutation event to record
         """
         if event.target_variant_id not in self._mutation_history:
             self._mutation_history[event.target_variant_id] = []
         self._mutation_history[event.target_variant_id].append(event)
-        
+
         # Limit history size to prevent memory issues
         max_history_per_variant = 100
-        if len(self._mutation_history[event.target_variant_id]) > max_history_per_variant:
-            self._mutation_history[event.target_variant_id] = \
-                self._mutation_history[event.target_variant_id][-max_history_per_variant:]
-    
+        if (
+            len(self._mutation_history[event.target_variant_id])
+            > max_history_per_variant
+        ):
+            self._mutation_history[event.target_variant_id] = self._mutation_history[
+                event.target_variant_id
+            ][-max_history_per_variant:]
+
     def analyze_prompt_complexity(self, prompt: str) -> ComplexityMetrics:
         """Analyze prompt complexity and sophistication.
-        
+
         Args:
             prompt: Prompt text to analyze
-            
+
         Returns:
             ComplexityMetrics with various complexity measures
         """
@@ -773,60 +790,84 @@ class VariantGenerator(VariantGeneratorBase):
                 avg_sentence_length=0.0,
                 lexical_diversity=0.0,
                 instruction_density=0.0,
-                complexity_score=0.0
+                complexity_score=0.0,
             )
-        
+
         # Basic text analysis
         sentences = self._split_sentences(prompt)
         words = prompt.lower().split()
-        
+
         sentence_count = len(sentences)
         word_count = len(words)
         avg_sentence_length = word_count / sentence_count if sentence_count > 0 else 0.0
-        
+
         # Lexical diversity (unique words / total words)
         unique_words = set(words)
         lexical_diversity = len(unique_words) / word_count if word_count > 0 else 0.0
-        
+
         # Instruction density (instruction-like words / total words)
         instruction_words = {
-            'please', 'make', 'ensure', 'provide', 'create', 'generate', 'analyze',
-            'explain', 'describe', 'list', 'identify', 'compare', 'summarize',
-            'think', 'consider', 'remember', 'focus', 'be', 'use', 'follow',
-            'step', 'process', 'method', 'approach'
+            "please",
+            "make",
+            "ensure",
+            "provide",
+            "create",
+            "generate",
+            "analyze",
+            "explain",
+            "describe",
+            "list",
+            "identify",
+            "compare",
+            "summarize",
+            "think",
+            "consider",
+            "remember",
+            "focus",
+            "be",
+            "use",
+            "follow",
+            "step",
+            "process",
+            "method",
+            "approach",
         }
         instruction_word_count = sum(1 for word in words if word in instruction_words)
-        instruction_density = instruction_word_count / word_count if word_count > 0 else 0.0
-        
+        instruction_density = (
+            instruction_word_count / word_count if word_count > 0 else 0.0
+        )
+
         # Composite complexity score (0-1)
         # Factors: sentence variety, lexical diversity, instruction density, length
         length_factor = min(word_count / 100, 1.0)  # Normalize to 100 words max
-        sentence_variety = min(sentence_count / 10, 1.0)  # Normalize to 10 sentences max
-        
+        sentence_variety = min(
+            sentence_count / 10, 1.0
+        )  # Normalize to 10 sentences max
+
         complexity_score = (
-            lexical_diversity * 0.3 +
-            instruction_density * 0.2 +
-            length_factor * 0.2 +
-            sentence_variety * 0.3
+            lexical_diversity * 0.3
+            + instruction_density * 0.2
+            + length_factor * 0.2
+            + sentence_variety * 0.3
         )
-        
+
         return ComplexityMetrics(
             sentence_count=sentence_count,
             word_count=word_count,
             avg_sentence_length=round(avg_sentence_length, 2),
             lexical_diversity=round(lexical_diversity, 3),
             instruction_density=round(instruction_density, 3),
-            complexity_score=round(complexity_score, 3)
+            complexity_score=round(complexity_score, 3),
         )
-    
+
     def generate_ab_pair(self, base: Variant) -> Tuple[Variant, Variant]:
         """Generate a controlled A/B test pair from a base variant.
-        
+
         Creates two variants with complementary mutations for A/B testing.
-        
+
         Args:
             base: Base variant to create A/B pair from
-            
+
         Returns:
             Tuple of (variant_a, variant_b) with different mutation strategies
         """
@@ -834,92 +875,106 @@ class VariantGenerator(VariantGeneratorBase):
         current_state = None
         if self._deterministic_mode:
             current_state = random.getstate()
-        
+
         try:
             # Variant A: Conservative mutation (paraphrase + instruction add)
             prompt_a = self.mutate_prompt(base.prompt, PromptMutationType.PARAPHRASE)
             prompt_a = self.mutate_prompt(prompt_a, PromptMutationType.INSTRUCTION_ADD)
-            
+
             config_a = base.configuration.copy()
             # Conservative config adjustment
-            if 'temperature' in config_a:
-                config_a['temperature'] = max(0.1, config_a['temperature'] - 0.1)
-            
+            if "temperature" in config_a:
+                config_a["temperature"] = max(0.1, config_a["temperature"] - 0.1)
+
             variant_a = Variant(
                 id=uuid4(),
                 parent_ids=[base.id],
                 generation=base.generation + 1,
                 prompt=prompt_a,
                 configuration=config_a,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
-            
+
             # Variant B: Aggressive mutation (context expand + CoT + tone shift)
-            prompt_b = self.mutate_prompt(base.prompt, PromptMutationType.CONTEXT_EXPAND)
+            prompt_b = self.mutate_prompt(
+                base.prompt, PromptMutationType.CONTEXT_EXPAND
+            )
             prompt_b = self.mutate_prompt(prompt_b, PromptMutationType.COT_INJECTION)
             prompt_b = self.mutate_prompt(prompt_b, PromptMutationType.TONE_SHIFT)
-            
+
             config_b = base.configuration.copy()
             # Aggressive config adjustment
-            if 'temperature' in config_b:
-                config_b['temperature'] = min(1.5, config_b['temperature'] + 0.2)
-            
+            if "temperature" in config_b:
+                config_b["temperature"] = min(1.5, config_b["temperature"] + 0.2)
+
             variant_b = Variant(
                 id=uuid4(),
                 parent_ids=[base.id],
                 generation=base.generation + 1,
                 prompt=prompt_b,
                 configuration=config_b,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
-            
+
             # Record mutation events
-            self._record_mutation_event(MutationEvent(
-                timestamp=datetime.now(),
-                mutation_type="ab_test_conservative",
-                source_variant_id=base.id,
-                target_variant_id=variant_a.id,
-                details={"strategy": "paraphrase+instruction_add", "config_adjustment": "temperature-0.1"}
-            ))
-            
-            self._record_mutation_event(MutationEvent(
-                timestamp=datetime.now(),
-                mutation_type="ab_test_aggressive",
-                source_variant_id=base.id,
-                target_variant_id=variant_b.id,
-                details={"strategy": "context+cot+tone", "config_adjustment": "temperature+0.2"}
-            ))
-            
+            self._record_mutation_event(
+                MutationEvent(
+                    timestamp=datetime.now(),
+                    mutation_type="ab_test_conservative",
+                    source_variant_id=base.id,
+                    target_variant_id=variant_a.id,
+                    details={
+                        "strategy": "paraphrase+instruction_add",
+                        "config_adjustment": "temperature-0.1",
+                    },
+                )
+            )
+
+            self._record_mutation_event(
+                MutationEvent(
+                    timestamp=datetime.now(),
+                    mutation_type="ab_test_aggressive",
+                    source_variant_id=base.id,
+                    target_variant_id=variant_b.id,
+                    details={
+                        "strategy": "context+cot+tone",
+                        "config_adjustment": "temperature+0.2",
+                    },
+                )
+            )
+
             return variant_a, variant_b
-            
+
         finally:
             # Restore random state if in deterministic mode
             if self._deterministic_mode and current_state is not None:
                 random.setstate(current_state)
-    
+
     def register_validator(self, validator: PromptValidator) -> None:
         """Register a custom validation plugin.
-        
+
         Args:
             validator: Custom validator to register
         """
         if not isinstance(validator, PromptValidator):
             raise ValueError("Validator must inherit from PromptValidator")
-        
+
         # Check for duplicate names
         existing_names = {v.get_name() for v in self._custom_validators}
         if validator.get_name() in existing_names:
-            raise ValueError(f"Validator with name '{validator.get_name()}' already registered")
-        
+            raise ValueError(
+                f"Validator with name '{validator.get_name()}' already registered"
+            )
+
         self._custom_validators.append(validator)
         logger.info(f"Registered custom validator: {validator.get_name()}")
-    
+
     def unregister_validator(self, name: str) -> bool:
         """Unregister a custom validator by name.
-        
+
         Args:
             name: Name of validator to remove
-            
+
         Returns:
             True if validator was found and removed, False otherwise
         """
@@ -929,10 +984,10 @@ class VariantGenerator(VariantGeneratorBase):
                 logger.info(f"Unregistered validator: {name}")
                 return True
         return False
-    
+
     def get_registered_validators(self) -> List[str]:
         """Get names of all registered custom validators.
-        
+
         Returns:
             List of validator names
         """
