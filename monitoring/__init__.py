@@ -1,5 +1,5 @@
 """
-Monitoring module for Goose Evolve.
+Monitoring module for evolve-mcp.
 Provides metrics collection and analysis capabilities.
 """
 

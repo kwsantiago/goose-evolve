@@ -1,5 +1,5 @@
 """
-Goose Evolve - Self-improvement MCP extension for Goose agents.
+evolve-mcp - Universal MCP server for agent self-improvement.
 """
 
 from evolution import (

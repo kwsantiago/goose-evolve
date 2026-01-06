@@ -1,5 +1,5 @@
 """
-Fitness Evaluator implementation for Goose Evolve.
+Fitness Evaluator implementation for evolve-mcp.
 Provides pluggable fitness evaluation with weighted sum scoring.
 """
 

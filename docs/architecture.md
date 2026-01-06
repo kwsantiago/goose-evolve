@@ -1,4 +1,4 @@
-# Goose Evolve: Evolution Architecture
+# evolve-mcp: Evolution Architecture
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-Goose Evolve is a self-improvement MCP extension for Goose agents, enabling autonomous evolution via genetic algorithms and sandboxed testing. The architecture prioritizes safety, modularity, and user control while maintaining local-first deployment capabilities.
+evolve-mcp is a universal MCP server for agent self-improvement, enabling autonomous evolution via genetic algorithms and sandboxed testing. Works with Claude Code, Goose, ChatGPT, and any MCP-compatible client. The architecture prioritizes safety, modularity, and user control while maintaining local-first deployment capabilities.
 
 ### Key Design Principles
 - **Event-Driven Architecture**: Loose coupling between components via async events

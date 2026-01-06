@@ -1,6 +1,6 @@
-# Contributing to Goose Evolve
+# Contributing to evolve-mcp
 
-Thank you for your interest in contributing to Goose Evolve! We welcome contributions that improve autonomous agent evolution through genetic algorithms.
+Thank you for your interest in contributing to evolve-mcp! We welcome contributions that improve autonomous agent evolution through genetic algorithms.
 
 ## Getting Started
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing to Goose Evolve! We welcome contribu
 ### Fork and Clone
 
 ```bash
-git clone https://github.com/kwsantiago/goose-evolve.git
-cd goose-evolve
+git clone https://github.com/privkeyio/evolve-mcp.git
+cd evolve-mcp
 git checkout -b your-feature-branch
 ```
 
@@ -20,15 +20,15 @@ git checkout -b your-feature-branch
 
 ```bash
 # Install in development mode with all dependencies
-pip install -e .
+uv sync --all-extras
 
 # Run tests to verify setup
-python -m pytest
+uv run pytest
 
 # Check code formatting
-python -m black --check .
-python -m isort --check-only .
-python -m mypy evolution/ monitoring/
+uv run black --check .
+uv run isort --check-only .
+uv run mypy evolution/ monitoring/
 ```
 
 ## Types of Contributions

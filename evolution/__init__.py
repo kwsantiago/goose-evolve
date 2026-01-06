@@ -1,5 +1,5 @@
 """
-Evolution module for Goose Evolve.
+Evolution module for evolve-mcp.
 Provides genetic algorithm-based evolution capabilities.
 """
 

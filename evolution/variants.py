@@ -1,5 +1,5 @@
 """
-Variant Generator implementation for Goose Evolve.
+Variant Generator implementation for evolve-mcp.
 Creates prompt mutations and crossover operations for genetic algorithm evolution.
 """
 
