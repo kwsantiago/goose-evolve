@@ -1,4 +1,4 @@
-"""Goose Evolve: Core Interface Definitions"""
+"""evolve-mcp: Core Interface Definitions"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

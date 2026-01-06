@@ -1,5 +1,5 @@
 """
-Centralized configuration management for Goose Evolve.
+Centralized configuration management for evolve-mcp.
 """
 
 import json
@@ -62,7 +62,7 @@ class Config:
     safety: SafetySettings = field(default_factory=SafetySettings)
     metrics: MetricsSettings = field(default_factory=MetricsSettings)
     logging: LoggingSettings = field(default_factory=LoggingSettings)
-    state_dir: str = ".goose-evolve"
+    state_dir: str = ".evolve-mcp"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
@@ -76,7 +76,7 @@ class Config:
             safety=SafetySettings(**data.get("safety", {})),
             metrics=MetricsSettings(**data.get("metrics", {})),
             logging=LoggingSettings(**data.get("logging", {})),
-            state_dir=data.get("state_dir", ".goose-evolve"),
+            state_dir=data.get("state_dir", ".evolve-mcp"),
         )
 
     def save(self, path: Optional[Path] = None) -> None:
@@ -117,8 +117,8 @@ def get_config(
         paths_to_try.append(state_dir / "config.json")
     paths_to_try.extend(
         [
-            Path(".goose-evolve") / "config.json",
-            Path("goose-evolve.json"),
+            Path(".evolve-mcp") / "config.json",
+            Path("evolve-mcp.json"),
         ]
     )
 
@@ -138,16 +138,16 @@ def get_config(
 def _apply_env_overrides(config: Config) -> None:
     """Apply environment variable overrides to config."""
     env_mappings: Dict[str, tuple] = {
-        "GOOSE_EVOLVE_POPULATION_SIZE": ("evolution", "population_size", int),
-        "GOOSE_EVOLVE_MUTATION_RATE": ("evolution", "mutation_rate", float),
-        "GOOSE_EVOLVE_MAX_GENERATIONS": ("evolution", "max_generations", int),
-        "GOOSE_EVOLVE_LOG_LEVEL": ("logging", "level", str),
-        "GOOSE_EVOLVE_LOG_JSON": (
+        "EVOLVE_MCP_POPULATION_SIZE": ("evolution", "population_size", int),
+        "EVOLVE_MCP_MUTATION_RATE": ("evolution", "mutation_rate", float),
+        "EVOLVE_MCP_MAX_GENERATIONS": ("evolution", "max_generations", int),
+        "EVOLVE_MCP_LOG_LEVEL": ("logging", "level", str),
+        "EVOLVE_MCP_LOG_JSON": (
             "logging",
             "json_output",
             lambda x: x.lower() == "true",
         ),
-        "GOOSE_EVOLVE_STATE_DIR": (None, "state_dir", str),
+        "EVOLVE_MCP_STATE_DIR": (None, "state_dir", str),
     }
 
     for env_var, (section, key, converter) in env_mappings.items():

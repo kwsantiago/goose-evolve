@@ -1,5 +1,5 @@
 """
-Evolution Engine implementation for Goose Evolve.
+Evolution Engine implementation for evolve-mcp.
 Central orchestrator for the genetic algorithm evolution cycle.
 """
 
@@ -749,7 +749,7 @@ class EvolutionEngine(EvolutionEngineBase):
 
     async def _generate_population(self, base_agent: Dict[str, Any]) -> List[Variant]:
         """Generate initial population from base agent"""
-        population = self.variant_generator.generate_population(
+        population: List[Variant] = self.variant_generator.generate_population(
             base_agent["prompt"], self.config.population_size
         )
 

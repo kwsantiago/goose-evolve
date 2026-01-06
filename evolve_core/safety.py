@@ -1,5 +1,5 @@
 """
-Safety validation for Goose Evolve.
+Safety validation for evolve-mcp.
 Pre-deployment validation to detect injection attacks and unsafe patterns.
 """
 

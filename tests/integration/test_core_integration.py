@@ -1,4 +1,4 @@
-"""Comprehensive integration tests for Goose Evolve core components."""
+"""Comprehensive integration tests for evolve-mcp core components."""
 
 import asyncio
 import gc

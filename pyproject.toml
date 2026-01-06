@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evolve-mcp"
+version = "0.1.0"
+description = "Universal MCP server for agent self-improvement via evolutionary algorithms"
+readme = "README.md"
+license = {text = "AGPL-3.0"}
+requires-python = ">=3.12"
+authors = [
+    {name = "PrivKey LLC", email = "information@privkey.io"}
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "evolution",
+    "genetic-algorithm",
+    "prompt-optimization",
+    "ai-agents",
+    "claude",
+    "llm"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+    "psutil>=5.9.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+evolve-mcp = "mcp_server.server:main"
+
+[project.urls]
+Homepage = "https://github.com/privkeyio/evolve-mcp"
+Documentation = "https://github.com/privkeyio/evolve-mcp#readme"
+Repository = "https://github.com/privkeyio/evolve-mcp"
+Issues = "https://github.com/privkeyio/evolve-mcp/issues"
+
+[tool.setuptools.packages.find]
+include = ["evolution*", "evolve_core*", "monitoring*", "mcp_server*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

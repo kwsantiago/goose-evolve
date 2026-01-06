@@ -1,5 +1,5 @@
 """
-Metrics collection and analysis for Goose Evolve.
+Metrics collection and analysis for evolve-mcp.
 Provides sliding window aggregation and evolution trigger detection.
 """
 
@@ -146,7 +146,7 @@ class MetricsCollector:
         }
 
         # Cache for performance
-        self._cached_windows: Dict[str, tuple] = {}
+        self._cached_windows: Dict[str, Tuple[MetricWindow, float]] = {}
         self._cache_ttl = 60  # seconds
         self._last_cleanup = time.time()
 

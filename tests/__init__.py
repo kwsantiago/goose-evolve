@@ -1,1 +1,1 @@
-"""Goose Evolve test suite"""
+"""evolve-mcp test suite"""

@@ -1,5 +1,5 @@
 """
-CLI interface for Goose Evolve.
+CLI interface for evolve-mcp.
 Provides commands for monitoring and controlling evolution cycles.
 """
 
@@ -19,8 +19,8 @@ from monitoring import MetricsCollector
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser."""
     parser = argparse.ArgumentParser(
-        prog="goose-evolve",
-        description="Self-improvement MCP extension for Goose agents",
+        prog="evolve-mcp",
+        description="Universal MCP server for agent self-improvement",
     )
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
 
@@ -31,7 +31,7 @@ def create_parser() -> argparse.ArgumentParser:
     status_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
@@ -43,7 +43,7 @@ def create_parser() -> argparse.ArgumentParser:
     history_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
@@ -64,7 +64,7 @@ def create_parser() -> argparse.ArgumentParser:
     metrics_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
@@ -80,18 +80,18 @@ def create_parser() -> argparse.ArgumentParser:
     export_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
     # Init command
     init_parser = subparsers.add_parser(
-        "init", help="Initialize goose-evolve in current directory"
+        "init", help="Initialize evolve-mcp in current directory"
     )
     init_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
@@ -103,7 +103,7 @@ def create_parser() -> argparse.ArgumentParser:
     config_parser.add_argument(
         "--state-dir",
         type=Path,
-        default=Path(".goose-evolve"),
+        default=Path(".evolve-mcp"),
         help="State directory path",
     )
 
@@ -115,7 +115,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     state_dir = args.state_dir
 
     if not state_dir.exists():
-        print("No evolution state found. Run 'goose-evolve init' first.")
+        print("No evolution state found. Run 'evolve-mcp init' first.")
         return 1
 
     state_file = state_dir / "state.json"
@@ -238,7 +238,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         summary = metrics.get("summary", {})
         for key, value in summary.items():
             if isinstance(value, (int, float)):
-                lines.append(f"goose_evolve_{key} {value}")
+                lines.append(f"evolve_mcp_{key} {value}")
         with open(output_path, "w") as f:
             f.write("\n".join(lines))
 
@@ -247,7 +247,7 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize goose-evolve in current directory."""
+    """Initialize evolve-mcp in current directory."""
     state_dir = args.state_dir
 
     if state_dir.exists():
@@ -289,7 +289,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     with open(state_dir / "metrics.json", "w") as f:
         json.dump({"summary": {}, "data": []}, f)
 
-    print(f"Initialized goose-evolve at {state_dir}")
+    print(f"Initialized evolve-mcp at {state_dir}")
     return 0
 
 
@@ -299,7 +299,7 @@ def cmd_config(args: argparse.Namespace) -> int:
     config_file = state_dir / "config.json"
 
     if not config_file.exists():
-        print("No configuration found. Run 'goose-evolve init' first.")
+        print("No configuration found. Run 'evolve-mcp init' first.")
         return 1
 
     with open(config_file) as f:

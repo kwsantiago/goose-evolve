@@ -1,5 +1,5 @@
 """
-Structured logging configuration for Goose Evolve.
+Structured logging configuration for evolve-mcp.
 Provides consistent logging across all components with JSON output support.
 """
 
@@ -88,7 +88,7 @@ class HumanFormatter(logging.Formatter):
 class EvolutionLogger:
     """Specialized logger for evolution events with structured context."""
 
-    def __init__(self, name: str = "goose_evolve"):
+    def __init__(self, name: str = "evolve_mcp"):
         self.logger = logging.getLogger(name)
         self._context: Dict[str, Any] = {}
 
@@ -204,7 +204,7 @@ def configure_logging(
         log_file: Optional file path for log output
         use_colors: Use colors in console output (ignored if json_output=True)
     """
-    root_logger = logging.getLogger("goose_evolve")
+    root_logger = logging.getLogger("evolve_mcp")
     root_logger.setLevel(getattr(logging, level.upper()))
 
     # Remove existing handlers

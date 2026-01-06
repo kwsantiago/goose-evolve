@@ -1,11 +1,15 @@
 # Core dependencies (standard library modules - no need to install)
 # asyncio - standard library
-# typing - standard library  
+# typing - standard library
 # dataclasses - standard library (Python 3.7+)
 # uuid - standard library
 # datetime - standard library
 # logging - standard library
 # random - standard library
+
+# MCP dependencies
+mcp>=1.0.0
+pydantic>=2.0.0
 
 # Testing dependencies
 pytest>=7.0.0
